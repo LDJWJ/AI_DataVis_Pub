@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG 증강 과정 체험하기</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .subtitle {
+            text-align: center;
+            color: rgba(255,255,255,0.9);
+            margin-bottom: 40px;
+            font-size: 1.2em;
+        }
+
+        .quick-examples {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .quick-examples h3 {
+            margin-bottom: 15px;
+            color: #667eea;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .example-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+
+        .example-btn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            font-size: 0.95em;
+        }
+
+        .example-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .section-title {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .query-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1.1em;
+            margin-bottom: 15px;
+            transition: border-color 0.3s;
+        }
+
+        .query-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .button:active {
+            transform: translateY(0);
+        }
+
+        .data-box {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 15px 0;
+            min-height: 150px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 2px solid #e0e0e0;
+        }
+
+        .step-indicator {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .step {
+            text-align: center;
+            flex: 1;
+            padding: 15px;
+            position: relative;
+        }
+
+        .step-number {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: #e0e0e0;
+            color: #999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 10px;
+            font-size: 1.5em;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .step.active .step-number {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .step-label {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .step.active .step-label {
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .step-arrow {
+            position: absolute;
+            right: -20px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 2em;
+            color: #e0e0e0;
+        }
+
+        .step:last-child .step-arrow {
+            display: none;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 968px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 RAG 증강 과정 체험하기</h1>
+        <p class="subtitle">검색된 정보가 어떻게 AI가 이해하기 좋은 형태로 변환되는지 확인해보세요!</p>
+
+        <!-- 빠른 예제 선택 -->
+        <div class="quick-examples">
+            <h3>💡 빠른 예제 선택</h3>
+            <div class="example-buttons">
+                <button class="example-btn" onclick="setExample('120만원대 노트북 추천해줘')">💻 노트북 검색</button>
+                <button class="example-btn" onclick="setExample('150만원대 65인치 TV 찾아줘')">📺 TV 검색</button>
+                <button class="example-btn" onclick="setExample('30만원대 여행용 가방 추천')">🎒 가방 검색</button>
+                <button class="example-btn" onclick="setExample('가벼운 노트북 찾아줘')">⚖️ 조건별 검색</button>
+                <button class="example-btn" onclick="setExample('삼성 제품 추천해줘')">🏢 브랜드 검색</button>
+            </div>
+        </div>
+
+        <!-- 단계 표시 -->
+        <div class="step-indicator">
+            <div class="step" id="step1">
+                <div class="step-number">1</div>
+                <div class="step-label">검색 결과</div>
+                <div class="step-arrow">→</div>
+            </div>
+            <div class="step" id="step2">
+                <div class="step-number">2</div>
+                <div class="step-label">필터링</div>
+                <div class="step-arrow">→</div>
+            </div>
+            <div class="step" id="step3">
+                <div class="step-number">3</div>
+                <div class="step-label">구조화</div>
+                <div class="step-arrow">→</div>
+            </div>
+            <div class="step" id="step4">
+                <div class="step-number">4</div>
+                <div class="step-label">컨텍스트 생성</div>
+            </div>
+        </div>
+
+        <!-- 메인 콘텐츠 -->
+        <div class="main-content">
+            <!-- 왼쪽: 입력 및 원본 데이터 -->
+            <div class="section">
+                <div class="section-title">
+                    <span>💬</span>
+                    <span>사용자 질문</span>
+                </div>
+                <input 
+                    type="text" 
+                    class="query-input" 
+                    id="userQuery" 
+                    placeholder="예: 120만원대 노트북 추천해줘"
+                    value="120만원대 노트북 추천해줘"
+                >
+                <button class="button" onclick="startAugmentation()">🚀 증강 과정 시작</button>
+
+                <div class="section-title" style="margin-top: 30px;">
+                    <span>📦</span>
+                    <span>원본 검색 결과</span>
+                </div>
+                <div class="data-box" id="rawData">데이터베이스에서 검색된 원본 정보가 여기에 표시됩니다...</div>
+
+                <div class="stats" id="stats" style="display: none;">
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalItems">0</div>
+                        <div class="stat-label">전체 항목</div>
+                    </div>
+                    <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                        <div class="stat-value" id="filteredItems">0</div>
+                        <div class="stat-label">필터링 후</div>
+                    </div>
+                    <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                        <div class="stat-value" id="relevanceScore">0%</div>
+                        <div class="stat-label">관련도</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 오른쪽: 증강 결과 -->
+            <div class="section">
+                <div class="section-title">
+                    <span>✨</span>
+                    <span>증강 결과</span>
+                </div>
+                <div class="data-box" id="augmentedData">증강 과정이 진행되면 결과가 여기에 표시됩니다...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 확장된 샘플 데이터베이스
+        const database = [
+            // 노트북
+            {
+                id: 1,
+                name: '삼성 갤럭시북3',
+                type: '노트북',
+                category: '전자제품',
+                brand: '삼성',
+                price: 1200000,
+                specs: {
+                    cpu: 'i5-1335U',
+                    ram: 16,
+                    storage: 512,
+                    weight: 1.58
+                },
+                rating: 4.5,
+                reviews: 152,
+                year: 2023,
+                features: ['배송무료', '2023년 신제품', 'Windows 11']
+            },
+            {
+                id: 2,
+                name: 'LG 그램 16Z90R',
+                type: '노트북',
+                category: '전자제품',
+                brand: 'LG',
+                price: 1350000,
+                specs: {
+                    cpu: 'i5-1340P',
+                    ram: 16,
+                    storage: 256,
+                    weight: 1.19
+                },
+                rating: 4.7,
+                reviews: 230,
+                year: 2023,
+                features: ['초경량', '당일배송', '17시간 배터리']
+            },
+            {
+                id: 3,
+                name: '애플 맥북 프로',
+                type: '노트북',
+                category: '전자제품',
+                brand: '애플',
+                price: 3500000,
+                specs: {
+                    cpu: 'M3',
+                    ram: 16,
+                    storage: 512,
+                    weight: 1.55
+                },
+                rating: 4.9,
+                reviews: 450,
+                year: 2023,
+                features: ['프로급 성능', 'Retina 디스플레이', 'macOS']
+            },
+            {
+                id: 4,
+                name: '삼성 갤럭시북2',
+                type: '노트북',
+                category: '전자제품',
+                brand: '삼성',
+                price: 1100000,
+                specs: {
+                    cpu: 'i7-1255U',
+                    ram: 8,
+                    storage: 256,
+                    weight: 1.81
+                },
+                rating: 4.3,
+                reviews: 89,
+                year: 2022,
+                features: ['구형 모델', 'Windows 11']
+            },
+            // TV
+            {
+                id: 5,
+                name: '삼성 QLED 65인치',
+                type: 'TV',
+                category: '전자제품',
+                brand: '삼성',
+                price: 1580000,
+                specs: {
+                    size: 65,
+                    resolution: '4K',
+                    type: 'QLED',
+                    smart: true
+                },
+                rating: 4.6,
+                reviews: 342,
+                year: 2023,
+                features: ['스마트TV', '4K 화질', '게임 모드']
+            },
+            {
+                id: 6,
+                name: 'LG OLED 55인치',
+                type: 'TV',
+                category: '전자제품',
+                brand: 'LG',
+                price: 1890000,
+                specs: {
+                    size: 55,
+                    resolution: '4K',
+                    type: 'OLED',
+                    smart: true
+                },
+                rating: 4.8,
+                reviews: 567,
+                year: 2023,
+                features: ['완벽한 블랙', 'AI 화질 개선', '스마트TV']
+            },
+            {
+                id: 7,
+                name: '삼성 크리스탈 UHD 50인치',
+                type: 'TV',
+                category: '전자제품',
+                brand: '삼성',
+                price: 680000,
+                specs: {
+                    size: 50,
+                    resolution: '4K',
+                    type: 'LED',
+                    smart: true
+                },
+                rating: 4.3,
+                reviews: 189,
+                year: 2023,
+                features: ['가성비', '스마트TV', '음성인식']
+            },
+            {
+                id: 8,
+                name: 'LG 나노셀 65인치',
+                type: 'TV',
+                category: '전자제품',
+                brand: 'LG',
+                price: 1450000,
+                specs: {
+                    size: 65,
+                    resolution: '4K',
+                    type: 'NanoCell',
+                    smart: true
+                },
+                rating: 4.5,
+                reviews: 234,
+                year: 2023,
+                features: ['넓은 시야각', '스포츠 화질 모드', '스마트TV']
+            },
+            // 가방
+            {
+                id: 9,
+                name: '삼소나이트 비즈니스 백팩',
+                type: '가방',
+                category: '패션/잡화',
+                brand: '삼소나이트',
+                price: 280000,
+                specs: {
+                    capacity: '25L',
+                    material: '나일론',
+                    laptop: '15.6인치',
+                    waterproof: true
+                },
+                rating: 4.7,
+                reviews: 445,
+                year: 2023,
+                features: ['노트북 수납', '방수', 'USB 충전포트']
+            },
+            {
+                id: 10,
+                name: '노스페이스 여행용 캐리어',
+                type: '가방',
+                category: '패션/잡화',
+                brand: '노스페이스',
+                price: 350000,
+                specs: {
+                    capacity: '40L',
+                    material: '폴리카보네이트',
+                    wheels: 4,
+                    expandable: true
+                },
+                rating: 4.6,
+                reviews: 328,
+                year: 2023,
+                features: ['대용량', '확장 가능', 'TSA 잠금장치']
+            },
+            {
+                id: 11,
+                name: 'MCM 크로스백',
+                type: '가방',
+                category: '패션/잡화',
+                brand: 'MCM',
+                price: 890000,
+                specs: {
+                    material: '가죽',
+                    style: '럭셔리',
+                    adjustable: true
+                },
+                rating: 4.8,
+                reviews: 156,
+                year: 2023,
+                features: ['명품', '고급 가죽', '멀티 포켓']
+            },
+            {
+                id: 12,
+                name: '밀레 트레킹 백팩',
+                type: '가방',
+                category: '패션/잡화',
+                brand: '밀레',
+                price: 180000,
+                specs: {
+                    capacity: '35L',
+                    material: '나일론',
+                    waterproof: true,
+                    frame: true
+                },
+                rating: 4.5,
+                reviews: 267,
+                year: 2023,
+                features: ['등산용', '방수', '통풍 시스템']
+            },
+            {
+                id: 13,
+                name: '에이스 여행용 백팩',
+                type: '가방',
+                category: '패션/잡화',
+                brand: '에이스',
+                price: 320000,
+                specs: {
+                    capacity: '30L',
+                    material: '폴리에스터',
+                    laptop: '17인치',
+                    expandable: true
+                },
+                rating: 4.4,
+                reviews: 198,
+                year: 2023,
+                features: ['여행용', '확장 가능', '다용도']
+            }
+        ];
+
+        let currentStep = 0;
+
+        function setExample(query) {
+            document.getElementById('userQuery').value = query;
+            startAugmentation();
+        }
+
+        function startAugmentation() {
+            const query = document.getElementById('userQuery').value;
+            
+            if (!query.trim()) {
+                alert('질문을 입력해주세요!');
+                return;
+            }
+
+            currentStep = 1;
+            updateStepIndicator();
+
+            setTimeout(() => showRawData(), 500);
+            setTimeout(() => {
+                currentStep = 2;
+                updateStepIndicator();
+                performFiltering(query);
+            }, 2000);
+            setTimeout(() => {
+                currentStep = 3;
+                updateStepIndicator();
+                performStructuring();
+            }, 4000);
+            setTimeout(() => {
+                currentStep = 4;
+                updateStepIndicator();
+                buildContext(query);
+            }, 6000);
+        }
+
+        function updateStepIndicator() {
+            for (let i = 1; i <= 4; i++) {
+                const step = document.getElementById(`step${i}`);
+                if (i <= currentStep) {
+                    step.classList.add('active');
+                } else {
+                    step.classList.remove('active');
+                }
+            }
+        }
+
+        function showRawData() {
+            const rawDataBox = document.getElementById('rawData');
+            rawDataBox.innerHTML = '<div class="loading"><div class="spinner"></div>검색 중...</div>';
+
+            setTimeout(() => {
+                let rawText = '=== 데이터베이스 검색 결과 ===\n\n';
+                database.forEach((item, index) => {
+                    rawText += `[${index + 1}] ${item.name} ${item.type} ${item.brand} ${item.price}원 `;
+                    
+                    if (item.type === '노트북') {
+                        rawText += `${item.specs.cpu} ${item.specs.ram}GB RAM ${item.specs.storage}GB SSD ${item.specs.weight}kg `;
+                    } else if (item.type === 'TV') {
+                        rawText += `${item.specs.size}인치 ${item.specs.resolution} ${item.specs.type} `;
+                    } else if (item.type === '가방') {
+                        rawText += `${item.specs.capacity} ${item.specs.material} `;
+                    }
+                    
+                    rawText += `별점${item.rating} ${item.year}년 ${item.features.join(' ')} 리뷰 ${item.reviews}개\n\n`;
+                });
+
+                rawDataBox.textContent = rawText;
+                
+                document.getElementById('stats').style.display = 'grid';
+                document.getElementById('totalItems').textContent = database.length;
+            }, 1000);
+        }
+
+        function performFiltering(query) {
+            const augmentedBox = document.getElementById('augmentedData');
+            augmentedBox.innerHTML = '<div class="loading"><div class="spinner"></div>필터링 중...</div>';
+
+            setTimeout(() => {
+                const priceMatch = query.match(/(\d+)만원/);
+                const targetPrice = priceMatch ? parseInt(priceMatch[1]) * 10000 : 2000000;
+                const priceRange = targetPrice * 0.5;
+
+                let productType = null;
+                if (query.includes('노트북') || query.includes('랩탑')) productType = '노트북';
+                if (query.includes('TV') || query.includes('티비') || query.includes('텔레비전')) productType = 'TV';
+                if (query.includes('가방') || query.includes('백팩') || query.includes('캐리어')) productType = '가방';
+
+                let brandFilter = null;
+                if (query.includes('삼성')) brandFilter = '삼성';
+                if (query.includes('LG')) brandFilter = 'LG';
+                if (query.includes('애플')) brandFilter = '애플';
+
+                let weightFilter = null;
+                if (query.includes('가벼운') || query.includes('경량')) weightFilter = 'light';
+
+                const filtered = database.filter(item => {
+                    let pass = true;
+                    
+                    if (priceMatch) {
+                        pass = pass && Math.abs(item.price - targetPrice) <= priceRange;
+                    }
+                    
+                    if (productType) {
+                        pass = pass && item.type === productType;
+                    }
+                    
+                    if (brandFilter) {
+                        pass = pass && item.brand === brandFilter;
+                    }
+                    
+                    if (weightFilter && item.specs.weight) {
+                        pass = pass && item.specs.weight < 1.5;
+                    }
+                    
+                    return pass;
+                });
+
+                let filterText = '=== 1단계: 필터링 결과 ===\n\n';
+                filterText += `✅ 필터링 조건:\n`;
+                if (priceMatch) filterText += `  - 가격대: ${(targetPrice/10000)}만원 ±50%\n`;
+                if (productType) filterText += `  - 제품 타입: ${productType}\n`;
+                if (brandFilter) filterText += `  - 브랜드: ${brandFilter}\n`;
+                if (weightFilter) filterText += `  - 무게: 1.5kg 미만 (경량)\n`;
+                filterText += `\n📊 결과: ${database.length}개 → ${filtered.length}개 (${database.length - filtered.length}개 제외)\n\n`;
+                
+                filterText += '제외된 항목:\n';
+                database.forEach(item => {
+                    if (!filtered.includes(item)) {
+                        let reasons = [];
+                        if (productType && item.type !== productType) reasons.push(`${productType}이 아님`);
+                        if (priceMatch && Math.abs(item.price - targetPrice) > priceRange) reasons.push('가격대 불일치');
+                        if (brandFilter && item.brand !== brandFilter) reasons.push('브랜드 불일치');
+                        if (weightFilter && item.specs.weight && item.specs.weight >= 1.5) reasons.push('무게 초과');
+                        filterText += `  ❌ ${item.name} (${reasons.join(', ')})\n`;
+                    }
+                });
+
+                filterText += '\n선택된 항목:\n';
+                filtered.forEach(item => {
+                    filterText += `  ✅ ${item.name} - ${(item.price/10000)}만원 (${item.type})\n`;
+                });
+
+                augmentedBox.textContent = filterText;
+                document.getElementById('filteredItems').textContent = filtered.length;
+                
+                window.filteredData = filtered;
+            }, 1000);
+        }
+
+        function performStructuring() {
+            const augmentedBox = document.getElementById('augmentedData');
+            augmentedBox.innerHTML = '<div class="loading"><div class="spinner"></div>구조화 중...</div>';
+
+            setTimeout(() => {
+                const filtered = window.filteredData || [];
+                
+                let structuredText = '=== 2단계: 구조화 결과 ===\n\n';
+                
+                structuredText += '📊 가격대별 분류:\n';
+                const priceGroups = {};
+                filtered.forEach(item => {
+                    const priceRange = `${Math.floor(item.price / 100000)}0만원대`;
+                    if (!priceGroups[priceRange]) priceGroups[priceRange] = [];
+                    priceGroups[priceRange].push(item);
+                });
+                Object.keys(priceGroups).sort().forEach(range => {
+                    structuredText += `\n[${range}]\n`;
+                    priceGroups[range].forEach(item => {
+                        structuredText += `  • ${item.name} (${item.type})\n`;
+                    });
+                });
+
+                if (filtered.length > 0 && filtered[0].type === '노트북') {
+                    structuredText += '\n\n💾 저장공간 비교:\n';
+                    const sortedByStorage = [...filtered].sort((a, b) => b.specs.storage - a.specs.storage);
+                    sortedByStorage.forEach(item => {
+                        structuredText += `  ${item.specs.storage >= 512 ? '🟢' : '🟡'} ${item.name}: ${item.specs.storage}GB\n`;
+                    });
+
+                    structuredText += '\n\n⚖️ 무게 비교:\n';
+                    const sortedByWeight = [...filtered].sort((a, b) => a.specs.weight - b.specs.weight);
+                    sortedByWeight.forEach(item => {
+                        structuredText += `  ${item.specs.weight < 1.3 ? '✨' : '📦'} ${item.name}: ${item.specs.weight}kg\n`;
+                    });
+                } else if (filtered.length > 0 && filtered[0].type === 'TV') {
+                    structuredText += '\n\n📺 화면 크기별:\n';
+                    const sortedBySize = [...filtered].sort((a, b) => b.specs.size - a.specs.size);
+                    sortedBySize.forEach(item => {
+                        structuredText += `  📐 ${item.name}: ${item.specs.size}인치 (${item.specs.type})\n`;
+                    });
+
+                    structuredText += '\n\n🎨 패널 타입별:\n';
+                    const typeGroups = {};
+                    filtered.forEach(item => {
+                        if (!typeGroups[item.specs.type]) typeGroups[item.specs.type] = [];
+                        typeGroups[item.specs.type].push(item);
+                    });
+                    Object.keys(typeGroups).forEach(type => {
+                        structuredText += `  ${type}: ${typeGroups[type].map(i => i.name).join(', ')}\n`;
+                    });
+                } else if (filtered.length > 0 && filtered[0].type === '가방') {
+                    structuredText += '\n\n🎒 용량별:\n';
+                    filtered.forEach(item => {
+                        structuredText += `  ${item.name}: ${item.specs.capacity}\n`;
+                    });
+
+                    structuredText += '\n\n💼 용도별:\n';
+                    filtered.forEach(item => {
+                        let purpose = '일반';
+                        if (item.features.includes('비즈니스') || item.specs.laptop) purpose = '비즈니스';
+                        if (item.features.includes('여행용')) purpose = '여행';
+                        if (item.features.includes('등산용')) purpose = '아웃도어';
+                        if (item.features.includes('명품')) purpose = '럭셔리';
+                        structuredText += `  ${item.name}: ${purpose}\n`;
+                    });
+                }
+
+                structuredText += '\n\n⭐ 사용자 평가:\n';
+                const sortedByRating = [...filtered].sort((a, b) => b.rating - a.rating);
+                sortedByRating.forEach(item => {
+                    structuredText += `  ${item.rating >= 4.5 ? '⭐⭐⭐' : '⭐⭐'} ${item.name}: ${item.rating}/5.0 (${item.reviews}개 리뷰)\n`;
+                });
+
+                structuredText += '\n\n🏢 브랜드별:\n';
+                const brandGroups = {};
+                filtered.forEach(item => {
+                    if (!brandGroups[item.brand]) brandGroups[item.brand] = [];
+                    brandGroups[item.brand].push(item);
+                });
+                Object.keys(brandGroups).forEach(brand => {
+                    structuredText += `  ${brand}: ${brandGroups[brand].length}개 제품\n`;
+                });
+
+                augmentedBox.textContent = structuredText;
+                
+                const avgReviews = filtered.reduce((sum, item) => sum + item.reviews, 0) / filtered.length;
+                const relevance = Math.min(100, Math.round((avgReviews / 200) * 100));
+                document.getElementById('relevanceScore').textContent = relevance + '%';
+            }, 1000);
+        }
+
+        function buildContext(query) {
+            const augmentedBox = document.getElementById('augmentedData');
+            augmentedBox.innerHTML = '<div class="loading"><div class="spinner"></div>최종 컨텍스트 생성 중...</div>';
+
+            setTimeout(() => {
+                const filtered = window.filteredData || [];
+                
+                let contextText = '=== 3단계: AI에게 전달되는 최종 컨텍스트 ===\n\n';
+                contextText += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+                contextText += `📌 사용자 질문: "${query}"\n`;
+                contextText += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+
+                contextText += '🎯 추천 제품 정보:\n\n';
+
+                filtered.forEach((item, index) => {
+                    contextText += `${index + 1}. ${item.name}\n`;
+                    contextText += `   💰 가격: ${(item.price/10000).toFixed(0)}만원\n`;
+                    contextText += `   🏢 브랜드: ${item.brand}\n`;
+                    contextText += `   📦 카테고리: ${item.type}\n`;
+                    
+                    if (item.type === '노트북') {
+                        contextText += `   💻 사양: ${item.specs.cpu} / RAM ${item.specs.ram}GB / SSD ${item.specs.storage}GB\n`;
+                        contextText += `   ⚖️  무게: ${item.specs.weight}kg\n`;
+                    } else if (item.type === 'TV') {
+                        contextText += `   📺 사양: ${item.specs.size}인치 / ${item.specs.resolution} / ${item.specs.type}\n`;
+                        contextText += `   📱 스마트TV: ${item.specs.smart ? '지원' : '미지원'}\n`;
+                    } else if (item.type === '가방') {
+                        contextText += `   🎒 사양: ${item.specs.capacity} / ${item.specs.material}\n`;
+                        if (item.specs.laptop) contextText += `   💻 노트북 수납: ${item.specs.laptop}\n`;
+                        if (item.specs.waterproof) contextText += `   💧 방수: 지원\n`;
+                    }
+                    
+                    contextText += `   ⭐ 평점: ${item.rating}/5.0 (${item.reviews}개 리뷰)\n`;
+                    contextText += `   📅 출시: ${item.year}년\n`;
+                    contextText += `   ✨ 특징: ${item.features.join(', ')}\n`;
+                    
+                    contextText += `   \n   📊 분석:\n`;
+                    if (item.rating >= 4.5) {
+                        contextText += `      ✅ 사용자 만족도 매우 높음\n`;
+                    }
+                    if (item.year >= 2023) {
+                        contextText += `      ✅ 최신 모델\n`;
+                    }
+                    if (item.reviews >= 200) {
+                        contextText += `      ✅ 검증된 제품 (리뷰 다수)\n`;
+                    }
+                    
+                    if (item.type === '노트북') {
+                        if (item.specs.storage >= 512) {
+                            contextText += `      ✅ 저장공간 넉넉함 (${item.specs.storage}GB)\n`;
+                        }
+                        if (item.specs.weight < 1.3) {
+                            contextText += `      ✅ 휴대성 우수 (${item.specs.weight}kg)\n`;
+                        }
+                    } else if (item.type === 'TV') {
+                        if (item.specs.type === 'OLED') {
+                            contextText += `      ✅ 프리미엄 화질 (OLED 패널)\n`;
+                        }
+                        if (item.specs.size >= 65) {
+                            contextText += `      ✅ 대화면 (${item.specs.size}인치)\n`;
+                        }
+                    } else if (item.type === '가방') {
+                        if (item.specs.waterproof) {
+                            contextText += `      ✅ 방수 기능\n`;
+                        }
+                        if (item.specs.laptop) {
+                            contextText += `      ✅ 노트북 수납 가능\n`;
+                        }
+                    }
+                    contextText += '\n';
+                });
+
+                contextText += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+                contextText += '💡 AI에게 주어지는 지시사항:\n\n';
+                contextText += '위 정보를 바탕으로:\n';
+                contextText += '1. 사용자 요구사항에 가장 적합한 제품 추천\n';
+                contextText += '2. 각 제품의 장단점 상세 비교\n';
+                contextText += '3. 가격 대비 성능 분석\n';
+                contextText += '4. 구체적인 선택 가이드 제공\n';
+                contextText += '5. 사용자 상황에 맞는 맞춤 추천\n';
+                contextText += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+                contextText += '✨ 이제 이 컨텍스트가 LLM(AI)에게 전달되어\n';
+                contextText += '   사용자에게 유용한 답변을 생성합니다!';
+
+                augmentedBox.textContent = contextText;
+            }, 1000);
+        }
+
+        window.onload = function() {
+            document.getElementById('rawData').textContent = '🎯 "증강 과정 시작" 버튼을 클릭하거나\n위의 빠른 예제를 선택하여 체험해보세요!\n\n💡 팁:\n- 노트북, TV, 가방 등 다양한 제품으로 테스트 가능\n- 가격, 브랜드, 조건 등으로 검색 가능\n- 직접 질문을 입력해볼 수도 있습니다';
+            document.getElementById('augmentedData').textContent = '증강 과정이 시작되면\n이 영역에 단계별로 결과가 표시됩니다.\n\n단계:\n1️⃣ 필터링 - 관련 없는 정보 제거\n2️⃣ 구조화 - 의미있는 형태로 정리\n3️⃣ 컨텍스트 생성 - AI용 프롬프트 완성\n\n지금 바로 시작해보세요!';
+        };
+    </script>
+</body>
+</html>
