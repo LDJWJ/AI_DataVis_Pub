@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agentic RAG 동작 흐름</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .tab {
+            padding: 15px 30px;
+            background: #f5f5f5;
+            border: none;
+            border-radius: 10px 10px 0 0;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: 600;
+            transition: all 0.3s;
+            color: #666;
+        }
+        
+        .tab:hover {
+            background: #e8e8e8;
+        }
+        
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            transform: translateY(-2px);
+        }
+        
+        .scenario {
+            display: none;
+        }
+        
+        .scenario.active {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .flow-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-top: 30px;
+        }
+        
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            transition: all 0.3s;
+        }
+        
+        .step:hover {
+            transform: translateX(10px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .step-number {
+            min-width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+        
+        .step-content {
+            flex: 1;
+        }
+        
+        .step-title {
+            font-weight: bold;
+            font-size: 1.2em;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        
+        .step-desc {
+            color: #666;
+            line-height: 1.6;
+        }
+        
+        .arrow {
+            text-align: center;
+            font-size: 2em;
+            color: #667eea;
+            margin: -10px 0;
+        }
+        
+        .result-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-top: 20px;
+            text-align: center;
+            font-size: 1.3em;
+            font-weight: 600;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+        
+        .icon {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        
+        .comparison {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-top: 30px;
+        }
+        
+        .comparison-card {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        
+        .comparison-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .comparison-card h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        
+        .comparison-card .icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+        
+        .comparison-card p {
+            color: #666;
+            line-height: 1.6;
+        }
+        
+        @media (max-width: 768px) {
+            .comparison {
+                grid-template-columns: 1fr;
+            }
+            
+            .tabs {
+                flex-direction: column;
+            }
+            
+            h1 {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Agentic RAG 동작 흐름</h1>
+        <p class="subtitle">AI 에이전트가 어떻게 질문을 처리하는지 알아보세요</p>
+        
+        <div class="tabs">
+            <button class="tab active" onclick="showScenario(1)">🔍 검색 (SEARCH)</button>
+            <button class="tab" onclick="showScenario(2)">💬 직접 (DIRECT)</button>
+            <button class="tab" onclick="showScenario(3)">🧮 계산 (CALCULATE)</button>
+            <button class="tab" onclick="showScenario(4)">📊 비교</button>
+        </div>
+        
+        <!-- 시나리오 1: SEARCH -->
+        <div id="scenario1" class="scenario active">
+            <div class="flow-container">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <div class="step-title">👤 사용자 질문</div>
+                        <div class="step-desc">"파이썬은 누가 만들었나요?"</div>
+                    </div>
+                </div>
+                
+                <div class="arrow">↓</div>
+                
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <div class="step-title">🤖 AI 에이전트 분석</div>
+                        <div class="step-desc">질문을 받아 결정 시스템에 전달합니다</div>
+                    </div>
+                </div>
+                
+                <div class="arrow">↓</div>
+                
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <div class="step-title">🎯 결정 시스템 판단</div>
+                        <div class="step-desc">→ SEARCH: 문서 검색이 필요한 질문입니다</div>
+                    </div>
+                </div>
+                
+                <div class="arrow">↓</div>
+                
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <div class="step-title">🔍 검색 도구 작동</div>
+                        <div class="step-desc">벡터 데이터베이스에서 관련 문서를 찾습니다</div>
+                    </div>
+                </div>
+                
+                <div class="arrow">↓</div>
+                
+                <div class="step">
+                    <div class="step-number">5</div>
+                    <div class="step-content">
+                        <div class="step-title">📄 문서 발견</div>
+                        <div class="step-desc">"파이썬은 1991년 귀도 반 로섬이 만든 프로그래밍 언어입니다."</div>
+                    </div>
+                </div>
+                
+                <div class="arrow">↓</div>
+                
+                <div class="step">
+                    <div class="step-number">6</div>
+                    <div class="step-content">
+                        <div class="step-title">🧠 LLM 답변 생성</div>
+                        <div class="step-desc">검색된 문서와 질문을 조합하여 자연스러운 답변을 만듭니다</div>
+                    </div>
+                </div>
+                
+                <div class="result-box">
+                    <div class="icon">✨</div>
+                    "귀도 반 로섬(Guido van Rossum)이 1991년에 파이썬을 만들었습니다."
+                </div>
+            </div>
+        </div>
+        
+        <!-- 시나리오 2: DIRECT -->
+        <div id="scenario2" class="scenario">
+            <div class="flow-container">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <div class="step-title">👤 사용자 질문</div>
+                        <div class="step-desc">"안녕하세요!"</div>
+                    </div>
+                </div>
+                
+                <div class="arrow">↓</div>
+                
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <div class="step-title">🤖 AI 에이전트 분석</div>
+                        <div class="step-desc">질문을 받아 결정 시스템에 전달합니다</div>
+                    </div>
+                </div>
+                
+                <div class="arrow">↓</div>
+                
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <div class="step-title">🎯 결정 시스템 판단</div>
+                        <div class="step-desc">→ DIRECT: 별도 도구 없이 바로 답변 가능합니다</div>
+                    </div>
+                </div>
+                
+                <div class="arrow">↓</div>
+                
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <div class="step-title">🧠 LLM 직접 호출</div>
+                        <div class="step-desc">검색이나 계산 없이 언어 모델이 바로 답변을 생성합니다</div>
+                    </div>
+                </div>
+                
+                <div class="result-box">
+                    <div class="icon">✨</div>
+                    "안녕하세요! 무엇을 도와드릴까요?"
+                </div>
+            </div>
+        </div>
+        
+        <!-- 시나리오 3: CALCULATE -->
+        <div id="scenario3" class="scenario">
+            <div class="flow-container">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <div class="step-title">👤 사용자 질문</div>
+                        <div class="step-desc">"25 곱하기 4는?"</div>
+                    </div>
+                </div>
+                
+                <div class="arrow">↓</div>
+                
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <div class="step-title">🤖 AI 에이전트 분석</div>
+                        <div class="step-desc">질문을 받아 결정 시스템에 전달합니다</div>
+                    </div>
+                </div>
+                
+                <div class="arrow">↓</div>
+                
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <div class="step-title">🎯 결정 시스템 판단</div>
+                        <div class="step-desc">→ CALCULATE: 수학 계산이 필요한 질문입니다</div>
+                    </div>
+                </div>
+                
+                <div class="arrow">↓</div>
+                
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <div class="step-title">🧮 계산 도구 작동</div>
+                        <div class="step-desc">계산 도구가 LLM에 계산을 요청합니다</div>
+                    </div>
+                </div>
+                
+                <div class="arrow">↓</div>
+                
+                <div class="step">
+                    <div class="step-number">5</div>
+                    <div class="step-content">
+                        <div class="step-title">🧠 LLM 계산 수행</div>
+                        <div class="step-desc">25 × 4 = 100</div>
+                    </div>
+                </div>
+                
+                <div class="arrow">↓</div>
+                
+                <div class="step">
+                    <div class="step-number">6</div>
+                    <div class="step-content">
+                        <div class="step-title">📊 결과 반환</div>
+                        <div class="step-desc">계산 도구가 결과를 에이전트에 전달합니다</div>
+                    </div>
+                </div>
+                
+                <div class="result-box">
+                    <div class="icon">✨</div>
+                    "25 곱하기 4는 100입니다."
+                </div>
+            </div>
+        </div>
+        
+        <!-- 비교 -->
+        <div id="scenario4" class="scenario">
+            <h2 style="text-align: center; margin-bottom: 30px; color: #333;">세 가지 시나리오 비교</h2>
+            <div class="comparison">
+                <div class="comparison-card">
+                    <div class="icon">🔍</div>
+                    <h3>SEARCH</h3>
+                    <p><strong>질문:</strong> 파이썬은 누가 만들었나요?</p>
+                    <p><strong>특징:</strong> 문서 검색 필요</p>
+                    <p><strong>단계:</strong> 6단계</p>
+                    <p><strong>도구:</strong> 벡터 DB 검색</p>
+                </div>
+                
+                <div class="comparison-card">
+                    <div class="icon">💬</div>
+                    <h3>DIRECT</h3>
+                    <p><strong>질문:</strong> 안녕하세요!</p>
+                    <p><strong>특징:</strong> 즉시 답변 가능</p>
+                    <p><strong>단계:</strong> 4단계 (가장 빠름)</p>
+                    <p><strong>도구:</strong> 없음</p>
+                </div>
+                
+                <div class="comparison-card">
+                    <div class="icon">🧮</div>
+                    <h3>CALCULATE</h3>
+                    <p><strong>질문:</strong> 25 곱하기 4는?</p>
+                    <p><strong>특징:</strong> 계산 수행 필요</p>
+                    <p><strong>단계:</strong> 6단계</p>
+                    <p><strong>도구:</strong> 계산 도구</p>
+                </div>
+            </div>
+            
+            <div style="margin-top: 40px; padding: 30px; background: #f8f9fa; border-radius: 15px;">
+                <h3 style="color: #667eea; margin-bottom: 20px;">💡 핵심 포인트</h3>
+                <ul style="line-height: 2; color: #666; font-size: 1.1em;">
+                    <li><strong>에이전트의 지능:</strong> 질문 유형을 자동으로 판단합니다</li>
+                    <li><strong>효율성:</strong> 필요한 도구만 사용하여 빠르게 처리합니다</li>
+                    <li><strong>정확성:</strong> 각 상황에 맞는 최적의 방법을 선택합니다</li>
+                    <li><strong>확장성:</strong> 새로운 도구를 쉽게 추가할 수 있습니다</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function showScenario(num) {
+            // 모든 탭과 시나리오 비활성화
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.scenario').forEach(scenario => scenario.classList.remove('active'));
+            
+            // 선택된 탭과 시나리오 활성화
+            document.querySelectorAll('.tab')[num - 1].classList.add('active');
+            document.getElementById('scenario' + num).classList.add('active');
+        }
+    </script>
+</body>
+</html>
