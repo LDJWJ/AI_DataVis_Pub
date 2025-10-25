@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot Arena 동작 원리</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Noto Sans KR', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 900px;
+            width: 100%;
+            padding: 40px;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 0.9em;
+        }
+        
+        .step {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            opacity: 0.3;
+            transition: all 0.5s ease;
+        }
+        
+        .step.active {
+            opacity: 1;
+            transform: scale(1.02);
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            border: 2px solid #667eea;
+        }
+        
+        .step-number {
+            display: inline-block;
+            width: 35px;
+            height: 35px;
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 35px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        .step-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .step-content {
+            color: #555;
+            line-height: 1.6;
+        }
+        
+        .models-container {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .model {
+            flex: 1;
+            padding: 20px;
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .model.revealed {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        
+        .model-label {
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+        
+        .model-name {
+            display: none;
+            color: #764ba2;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .model-name.show {
+            display: block;
+        }
+        
+        .model-response {
+            color: #333;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-choice {
+            background: #f8f9fa;
+            color: #333;
+            border: 2px solid #ddd;
+        }
+        
+        .btn-choice:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+            transform: translateY(-2px);
+        }
+        
+        .btn-choice.selected {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+        
+        .score-display {
+            text-align: center;
+            margin-top: 20px;
+            padding: 20px;
+            background: #f0f4ff;
+            border-radius: 10px;
+            display: none;
+        }
+        
+        .score-display.show {
+            display: block;
+        }
+        
+        .score {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏟️ Chatbot Arena 체험하기</h1>
+        <p class="subtitle">AI 모델 평가 과정을 단계별로 체험해보세요</p>
+        
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress"></div>
+        </div>
+        
+        <div class="step active" id="step1">
+            <div class="step-title">
+                <span class="step-number">1</span>
+                질문 입력
+            </div>
+            <div class="step-content">
+                <p>사용자가 AI에게 질문을 입력합니다.</p>
+                <p style="margin-top: 15px; padding: 15px; background: white; border-radius: 8px; border-left: 4px solid #667eea;">
+                    <strong>예시 질문:</strong> "기후 변화를 완화하기 위한 가장 효과적인 방법은 무엇인가요?"
+                </p>
+                <div style="text-align: center; margin-top: 20px;">
+                    <button class="btn btn-primary" onclick="nextStep(2)">다음 단계로 →</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="step" id="step2">
+            <div class="step-title">
+                <span class="step-number">2</span>
+                익명 모델 응답
+            </div>
+            <div class="step-content">
+                <p>두 개의 익명 AI 모델이 동일한 질문에 답변합니다. 어느 것이 어떤 모델인지는 숨겨져 있습니다.</p>
+                
+                <div class="models-container">
+                    <div class="model" id="modelA">
+                        <div class="model-label">🤖 Model A</div>
+                        <div class="model-name" id="nameA">Claude 3.5 Sonnet</div>
+                        <div class="model-response">
+                            재생 에너지로의 전환이 가장 중요합니다. 태양광, 풍력 등 청정 에너지원으로의 빠른 전환이 필요하며, 동시에 에너지 효율성을 높이고 탄소 포집 기술을 개발해야 합니다. 또한 개인의 생활 습관 변화와 정책적 지원이 함께 이루어져야 효과적입니다.
+                        </div>
+                    </div>
+                    
+                    <div class="model" id="modelB">
+                        <div class="model-label">🤖 Model B</div>
+                        <div class="model-name" id="nameB">GPT-4</div>
+                        <div class="model-response">
+                            기후 변화 대응에는 여러 방법이 있습니다. 나무를 많이 심고, 일회용품 사용을 줄이고, 대중교통을 이용하는 것이 좋습니다. 모든 사람이 노력하면 지구를 지킬 수 있습니다.
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="text-align: center; margin-top: 20px;">
+                    <button class="btn btn-primary" onclick="nextStep(3)">다음 단계로 →</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="step" id="step3">
+            <div class="step-title">
+                <span class="step-number">3</span>
+                더 나은 답변 선택
+            </div>
+            <div class="step-content">
+                <p>어느 답변이 더 우수한지 선택해주세요. 정답은 없으며, 여러분의 판단이 중요합니다!</p>
+                
+                <div class="buttons">
+                    <button class="btn btn-choice" id="choiceA" onclick="selectModel('A')">Model A 선택</button>
+                    <button class="btn btn-choice" onclick="selectModel('tie')">비슷함</button>
+                    <button class="btn btn-choice" id="choiceB" onclick="selectModel('B')">Model B 선택</button>
+                </div>
+                
+                <div style="text-align: center; margin-top: 20px; display: none;" id="nextBtn">
+                    <button class="btn btn-primary" onclick="nextStep(4)">다음 단계로 →</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="step" id="step4">
+            <div class="step-title">
+                <span class="step-number">4</span>
+                모델 정체 공개
+            </div>
+            <div class="step-content">
+                <p>투표 후 각 모델의 정체가 공개됩니다!</p>
+                <p style="margin-top: 10px; color: #667eea; font-weight: bold;">
+                    ✨ 당신은 <span id="userChoice"></span>을(를) 선택했습니다!
+                </p>
+                
+                <div style="text-align: center; margin-top: 20px;">
+                    <button class="btn btn-primary" onclick="nextStep(5)">다음 단계로 →</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="step" id="step5">
+            <div class="step-title">
+                <span class="step-number">5</span>
+                점수 업데이트
+            </div>
+            <div class="step-content">
+                <p>사용자의 선택을 바탕으로 각 모델의 Elo 점수가 업데이트됩니다.</p>
+                
+                <div class="score-display show">
+                    <div>
+                        <strong>Claude 3.5 Sonnet</strong>
+                        <div class="score">1285 (+5)</div>
+                    </div>
+                    <hr style="margin: 20px 0; border: none; border-top: 2px solid #e0e0e0;">
+                    <div>
+                        <strong>GPT-4</strong>
+                        <div class="score" style="color: #999;">1278 (-5)</div>
+                    </div>
+                </div>
+                
+                <div style="text-align: center; margin-top: 30px;">
+                    <button class="btn btn-primary" onclick="restart()">🔄 처음부터 다시 시작</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let currentStep = 1;
+        let selectedChoice = '';
+        
+        function nextStep(step) {
+            // 이전 단계 비활성화
+            document.getElementById('step' + currentStep).classList.remove('active');
+            
+            // 다음 단계 활성화
+            currentStep = step;
+            document.getElementById('step' + currentStep).classList.add('active');
+            
+            // 진행률 업데이트
+            document.getElementById('progress').style.width = (currentStep / 5 * 100) + '%';
+            
+            // 특정 단계에서 추가 동작
+            if (step === 4) {
+                revealModels();
+            }
+            
+            // 페이지 스크롤
+            document.getElementById('step' + currentStep).scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        
+        function selectModel(choice) {
+            selectedChoice = choice;
+            
+            // 버튼 스타일 업데이트
+            document.querySelectorAll('.btn-choice').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            
+            if (choice === 'A') {
+                document.getElementById('choiceA').classList.add('selected');
+            } else if (choice === 'B') {
+                document.getElementById('choiceB').classList.add('selected');
+            }
+            
+            // 다음 버튼 표시
+            document.getElementById('nextBtn').style.display = 'block';
+        }
+        
+        function revealModels() {
+            // 모델 이름 공개
+            document.getElementById('nameA').classList.add('show');
+            document.getElementById('nameB').classList.add('show');
+            document.getElementById('modelA').classList.add('revealed');
+            document.getElementById('modelB').classList.add('revealed');
+            
+            // 사용자 선택 표시
+            let choiceText = '';
+            if (selectedChoice === 'A') {
+                choiceText = 'Claude 3.5 Sonnet (Model A)';
+            } else if (selectedChoice === 'B') {
+                choiceText = 'GPT-4 (Model B)';
+            } else {
+                choiceText = '비슷함';
+            }
+            document.getElementById('userChoice').textContent = choiceText;
+        }
+        
+        function restart() {
+            // 초기화
+            currentStep = 1;
+            selectedChoice = '';
+            
+            // 모든 단계 비활성화
+            for (let i = 1; i <= 5; i++) {
+                document.getElementById('step' + i).classList.remove('active');
+            }
+            
+            // 첫 단계 활성화
+            document.getElementById('step1').classList.add('active');
+            
+            // 진행률 초기화
+            document.getElementById('progress').style.width = '0%';
+            
+            // 모델 이름 숨기기
+            document.getElementById('nameA').classList.remove('show');
+            document.getElementById('nameB').classList.remove('show');
+            document.getElementById('modelA').classList.remove('revealed');
+            document.getElementById('modelB').classList.remove('revealed');
+            
+            // 버튼 초기화
+            document.querySelectorAll('.btn-choice').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            document.getElementById('nextBtn').style.display = 'none';
+            
+            // 맨 위로 스크롤
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>
